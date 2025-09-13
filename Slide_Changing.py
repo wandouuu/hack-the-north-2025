@@ -1,52 +1,82 @@
 import cv2
 import mediapipe as mp
 import pyautogui
+import time
 
-cap = cv2.VideoCapture(0)
+# For FPS calculation
+def fps_handle(start, frame):
+    end = time.time()
+    total_time = end - start
+    if total_time != 0:
+        fps = 1 / total_time
+        print(f"FPS: {round(fps, 2)}")
+        cv2.putText(frame, f"FPS: {int(fps)}", (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (255,0,255), 2, 1)
+    else:
+        print(f"FPS: ???")
+        cv2.putText(frame, f"FPS: ???", (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (255,0,255), 2, 1)
 
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
-mp_draw = mp.solutions.drawing_utils
 
-prev_x = None
+def main():
+    cap = cv2.VideoCapture(0)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    mp_hands = mp.solutions.hands
+    hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7, model_complexity=0)
+    mp_draw = mp.solutions.drawing_utils
 
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb)
+    prev_indx = None
+    prev_mndx = None
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+    while True:
+        start = time.time()
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-            # Index fingertip = landmark 8
-            h, w, c = frame.shape
-            x = int(hand_landmarks.landmark[8].x * w)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = hands.process(rgb)
 
-            if prev_x is not None:
-                dx = x - prev_x
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                fps_handle(start)
+                # Index fingertip = landmark 8
+                h, w, c = frame.shape
+                indx = int(hand_landmarks.landmark[8].x * w)
+                indy = int(hand_landmarks.landmark[8].y * h)
 
-                # Swipe right
-                if dx > 50:
-                    pyautogui.press('right')
-                    print("Next Slide")
-                    prev_x = None  # reset so it doesn’t spam
+                #middle fingertip = landmark 12
+                mndx = int(hand_landmarks.landmark[12].x * w)
+                mndy = int(hand_landmarks.landmark[12].y * h)
 
-                # Swipe left
-                elif dx < -50:
-                    pyautogui.press('left')
-                    print("Previous Slide")
-                    prev_x = None
+                print(f"Index Finger Tip Coordinates: ({indx}, {indy})")
+                print(f"Middle Finger Tip Coordinates: ({mndx}, {mndy})")
 
-            prev_x = x
+                if prev_indx is not None and prev_mndx is not None:
+                    d_indx = indx - prev_indx
+                    d_mndx = mndx - prev_mndx
 
-    cv2.imshow("Gesture Control", frame)
+                    # Swipe right
+                    if d_indx > 150 and d_mndx > 150:
+                        pyautogui.press('right')
+                        print("Next Slide")
+                        prev_indx = None  # reset so it doesn’t spam
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+                    # Swipe left
+                    elif d_indx < -150 and d_mndx < -150:
+                        pyautogui.press('left')
+                        print("Previous Slide")
+                        prev_indx = None
 
-cap.release()
-cv2.destroyAllWindows()
+                prev_indx = indx
+                prev_mndx = mndx
+
+        cv2.imshow("Gesture Control", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
