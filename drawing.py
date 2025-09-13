@@ -24,7 +24,7 @@ import numpy as np
 # ---------- Config ----------
 PINCH_THRESHOLD = 30  # px, strict pinch
 SMOOTHING_WINDOW = 5
-MIN_POINT_DIST = 5
+MIN_POINT_DIST = 12
 CAM_INDEX = 0
 FLIP_FRAME = True
 STROKE_WIDTH = 6
