@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import pyautogui
 import time
+import pygetwindow as gw
 
 # For FPS calculation
 def fps_handle(start, frame):
