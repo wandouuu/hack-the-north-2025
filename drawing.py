@@ -6,7 +6,7 @@ Air-writing overlay with:
 - Smooth, controlled strokes
 - Full-screen mapping
 - Transparent, click-through overlay
-- Hotkeys: C to clear, Q to quit
+- Hotkeys: C to clear, Q to quit, E to toggle eraser
 """
 
 import sys
@@ -22,7 +22,7 @@ import keyboard
 import numpy as np
 
 # ---------- Config ----------
-PINCH_THRESHOLD = 30  # px, strict pinch
+PINCH_THRESHOLD = 20  # px, strict pinch
 SMOOTHING_WINDOW = 5
 MIN_POINT_DIST = 12
 CAM_INDEX = 0
@@ -30,6 +30,7 @@ FLIP_FRAME = True
 STROKE_WIDTH = 6
 CURSOR_RADIUS = 10
 CAM_WIDTH, CAM_HEIGHT = 640, 480  # set to your webcam resolution
+ERASER_RADIUS = 30  # pixels
 # ----------------------------
 
 screen_w, screen_h = pyautogui.size()
@@ -123,6 +124,9 @@ class OverlayWindow(QtWidgets.QWidget):
         # For smoothing cursor movement
         self.smooth_queue = deque(maxlen=SMOOTHING_WINDOW)
 
+        # Eraser mode toggle
+        self.eraser_mode = False
+
         self.show()
 
     @QtCore.pyqtSlot(int, int, bool)
@@ -143,19 +147,23 @@ class OverlayWindow(QtWidgets.QWidget):
         avg_y = int(sum(p[1] for p in self.smooth_queue) / len(self.smooth_queue))
         self.cursor_pos = QtCore.QPointF(avg_x, avg_y)
 
-        # Append to stroke only if pinched
         if is_pinched:
-            if not self.is_drawing:
-                self.start_stroke(self.cursor_pos)
+            if self.eraser_mode:
+                # Erase strokes near cursor
+                self.erase_at(self.cursor_pos)
             else:
-                last = self.current_stroke[-1] if self.current_stroke else None
-                if last is None or (abs(last.x() - self.cursor_pos.x()) + abs(last.y() - self.cursor_pos.y())) >= MIN_POINT_DIST:
-                    self.append_point(self.cursor_pos)
+                # Normal drawing mode
+                if not self.is_drawing:
+                    self.start_stroke(self.cursor_pos)
+                else:
+                    last = self.current_stroke[-1] if self.current_stroke else None
+                    if last is None or (abs(last.x() - self.cursor_pos.x()) +
+                                        abs(last.y() - self.cursor_pos.y())) >= MIN_POINT_DIST:
+                        self.append_point(self.cursor_pos)
         else:
             if self.is_drawing:
                 self.finish_stroke()
 
-        # Always repaint so cursor is drawn even when not pinching
         self.update()
 
     def start_stroke(self, pt):
@@ -174,6 +182,15 @@ class OverlayWindow(QtWidgets.QWidget):
         self.is_drawing = False
         self.update()
 
+    def erase_at(self, pt):
+        """Erase any stroke points within ERASER_RADIUS of pt."""
+        new_strokes = []
+        for stroke in self.strokes:
+            filtered = [p for p in stroke if (p - pt).manhattanLength() > ERASER_RADIUS]
+            if len(filtered) > 1:
+                new_strokes.append(filtered)
+        self.strokes = new_strokes
+
     def clear(self):
         self.strokes = []
         self.current_stroke = None
@@ -182,7 +199,6 @@ class OverlayWindow(QtWidgets.QWidget):
         self.update()
 
     def paintEvent(self, event):
-        # Clear temp image
         self.temp_img.fill(0)
 
         # Draw all strokes
@@ -190,30 +206,31 @@ class OverlayWindow(QtWidgets.QWidget):
             if len(stroke) < 2:
                 continue
             for i in range(1, len(stroke)):
-                pt1 = (int(stroke[i-1].x()), int(stroke[i-1].y()))
+                pt1 = (int(stroke[i - 1].x()), int(stroke[i - 1].y()))
                 pt2 = (int(stroke[i].x()), int(stroke[i].y()))
                 cv2.line(self.temp_img, pt1, pt2, self.pen_color, self.pen_width, lineType=cv2.LINE_AA)
 
         # Draw current stroke
         if self.current_stroke and len(self.current_stroke) >= 2:
             for i in range(1, len(self.current_stroke)):
-                pt1 = (int(self.current_stroke[i-1].x()), int(self.current_stroke[i-1].y()))
+                pt1 = (int(self.current_stroke[i - 1].x()), int(self.current_stroke[i - 1].y()))
                 pt2 = (int(self.current_stroke[i].x()), int(self.current_stroke[i].y()))
                 cv2.line(self.temp_img, pt1, pt2, self.pen_color, self.pen_width, lineType=cv2.LINE_AA)
 
-        # Convert temp image to QImage directly to preserve red color
         qt_img = QtGui.QImage(self.temp_img.data, self.temp_img.shape[1], self.temp_img.shape[0],
                               QtGui.QImage.Format_RGBA8888)
         painter = QtGui.QPainter(self)
         painter.drawImage(0, 0, qt_img)
 
-        # Draw cursor (green circle) always
+        # Cursor (green in pen mode, red in eraser mode)
         if self.cursor_pos:
-            cursor_pen = QtGui.QPen(QtGui.QColor(0, 255, 0, 180))
+            color = QtGui.QColor(0, 255, 0, 180) if not self.eraser_mode else QtGui.QColor(255, 0, 0, 180)
+            cursor_pen = QtGui.QPen(color)
             cursor_pen.setWidth(2)
             painter.setPen(cursor_pen)
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 255, 0, 120)))
-            painter.drawEllipse(self.cursor_pos, CURSOR_RADIUS, CURSOR_RADIUS)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(color)))
+            radius = ERASER_RADIUS if self.eraser_mode else CURSOR_RADIUS
+            painter.drawEllipse(self.cursor_pos, radius, radius)
 
 
 # ---------- Main ----------
@@ -225,8 +242,9 @@ def main():
     cam_worker.start()
 
     # Hotkeys
-    keyboard.add_hotkey('c', overlay.clear)
-    keyboard.add_hotkey('q', lambda: (cam_worker.stop(), QtWidgets.QApplication.quit()))
+    keyboard.add_hotkey('ctrl+c', overlay.clear)
+    keyboard.add_hotkey('ctrl+q', lambda: (cam_worker.stop(), QtWidgets.QApplication.quit()))
+    keyboard.add_hotkey('ctrl+e', lambda: setattr(overlay, "eraser_mode", not overlay.eraser_mode))
 
     sys.exit(app.exec_())
 
