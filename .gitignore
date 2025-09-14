@@ -1,3 +1,4 @@
 .env
 .venv
 .git
+./qnx_build/__pycache__
