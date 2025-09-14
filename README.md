@@ -1,5 +1,7 @@
 # Scribly: The Media Presentation Assistant
 
+![](./assets/IMG_0018.jpeg)
+
 A computer vision-based media presentation assistant that allows you to control slides and annotate your screen using only hand gestures. This tool enables seamless, touchless interaction for presentations, lectures, or remote teaching, supporting both slide navigation and real-time drawing/annotation overlays.
 
 ## Features
