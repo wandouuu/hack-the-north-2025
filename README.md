@@ -13,7 +13,7 @@ A computer vision-based media presentation assistant that allows you to control 
 
 1. **Clone the repository**
    ```sh
-   git clone https://github.com/wandouuu/hack-the-north-2025.git
+   git clone https://github.com/wandouuu/scribly-htn2025
    cd hack-the-north-2025
    ```
 
