@@ -1,4 +1,4 @@
-# Media Presentation Assistant
+# Scribly: The Media Presentation Assistant
 
 A computer vision-based media presentation assistant that allows you to control slides and annotate your screen using only hand gestures. This tool enables seamless, touchless interaction for presentations, lectures, or remote teaching, supporting both slide navigation and real-time drawing/annotation overlays.
 
@@ -13,7 +13,7 @@ A computer vision-based media presentation assistant that allows you to control 
 
 1. **Clone the repository**
    ```sh
-   git clone <your-repo-url>
+   git clone https://github.com/wandouuu/hack-the-north-2025.git
    cd hack-the-north-2025
    ```
 
@@ -35,17 +35,23 @@ Run the main application:
 python main.py
 ```
 
-## File Overview
+## Project Overview
 
-- **main.py**: Entry point. Launches the overlay and camera worker 
-- **drawing.py**: Contains the `CamWorker` class for camera capture, gesture detection, and signal emission
+### QNX Mode
+- **video_transmission.py**: Gets the video stream over LAN from the Raspberry Pi (through a Raspberry Pi Camera Module 3).
+- **main_rpi.py**: Processes the video stream and feeds it into main.py, which is lastly processed through MediaPipe.
+
+### Webcam Mode
+- **main.py**: Entry point. Launches the overlay and camera worker.
+- **drawing.py**: Contains the `CamWorker` class for camera capture, gesture detection, and signal emission.
 - **pose.py**: Contains the `OverlayWindow` class for drawing and erasing annotations.
 - **connect.py**: (If present) May contain helper classes or functions for connecting overlay and camera logic.
 
+###
 
 ## Notes
 - On macOS, true system-wide overlays may be limited by OS security. The overlay works best on Windows, but most features are available cross-platform.
-- Make sure your webcam is connected and accessible.
+- Make sure your webcam is connected and accessible, or have a Raspberry Pi with QNX ready.
 - For best results, use in a well-lit environment.
 
 ## License
